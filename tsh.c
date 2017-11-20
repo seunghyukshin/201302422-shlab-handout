@@ -169,11 +169,35 @@ int main(int argc, char **argv)
  */
 void eval(char *cmdline) 
 {
+	char *argv[MAXARGS];
+	pid_t pid;
+	int bj;
+	bj=parseline(cmdline,argv);
+	/*builtin_cmd(argv);*/
+	if(!builtin_cmd(argv)){
+		if((pid=fork())==0){
+			if((execve(argv[0],argv,environ)<0)){
+				printf("%s:Command not found\n",argv);
+				exit(0);
+			}
+		}
+		if(!bj){/*foreground job*/
+			int status;
+			if(waitpid(pid,&status,0)<0){
+				unix_error("waitfg:error");
+			}
+		}
+	}
 	return;
 }
 
 int builtin_cmd(char **argv)
-{
+{ 	
+	char *cmd = argv[0];
+	
+	if(!strcmp(cmd,"quit")){
+		exit(0);
+	}		
 	return 0;
 }
 
