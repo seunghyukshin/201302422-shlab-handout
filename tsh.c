@@ -175,11 +175,15 @@ void eval(char *cmdline)
 	bj=parseline(cmdline,argv);
 	/*builtin_cmd(argv);*/
 	if(!builtin_cmd(argv)){
-		if((pid=fork())==0){
+		pid_t pidt = (pid=fork());
+		if(pidt==0){
 			if((execve(argv[0],argv,environ)<0)){
 				printf("%s:Command not found\n",argv);
 				exit(0);
 			}
+		}
+		if(pidt<0){
+			unix_error("fork error");
 		}
 		if(!bj){/*foreground job*/
 			addjob(jobs,pid,FG,cmdline);
