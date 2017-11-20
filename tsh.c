@@ -182,10 +182,15 @@ void eval(char *cmdline)
 			}
 		}
 		if(!bj){/*foreground job*/
+			addjob(jobs,pid,FG,cmdline);
 			int status;
 			if(waitpid(pid,&status,0)<0){
 				unix_error("waitfg:error");
 			}
+			deletejob(jobs,pid);
+		}else{/*background*/
+			addjob(jobs,pid,BG,cmdline);
+			printf("(%d) (%d) %s",pid2jid(pid),pid,cmdline);
 		}
 	}
 	return;
@@ -197,7 +202,11 @@ int builtin_cmd(char **argv)
 	
 	if(!strcmp(cmd,"quit")){
 		exit(0);
-	}		
+	}
+	if(!strcmp(cmd,"jobs")){
+		listjobs(jobs,1);
+		return 1;
+	}
 	return 0;
 }
 
