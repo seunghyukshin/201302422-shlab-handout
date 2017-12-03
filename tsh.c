@@ -172,28 +172,50 @@ void eval(char *cmdline)
 	char *argv[MAXARGS];
 	pid_t pid;
 	int bj;
+	sigset_t mask;
+
 	bj=parseline(cmdline,argv);
 	/*builtin_cmd(argv);*/
+	if(sigemptyset(&mask)<0){
+		printf("SigEmptySet error");
+	}
+	else{
+		if(sigaddset(&mask,SIGINT)<0){
+			printf("SIGINT error");
+		}
+		if(sigaddset(&mask,SIGCHLD)<0){
+			printf("SIGCHLD error");
+		}
+	}
+	if(sigprocmask(SIG_BLOCK,&mask,NULL)<0){
+		printf("SIG_BLOCK error");
+	}
+			
 	if(!builtin_cmd(argv)){
-		pid_t pidt = (pid=fork());
-		if(pidt==0){
+		if((pid=fork())==0){
+			if(sigprocmask(SIG_UNBLOCK,&mask,NULL)<0){
+				printf("child_SIG_UNBLOCK error");
+			}
+
 			if((execve(argv[0],argv,environ)<0)){
 				printf("%s:Command not found\n",argv);
 				exit(0);
 			}
 		}
-		if(pidt<0){
+		else if(pid<0){
 			unix_error("fork error");
 		}
 		if(!bj){/*foreground job*/
 			addjob(jobs,pid,FG,cmdline);
-			int status;
-			if(waitpid(pid,&status,0)<0){
-				unix_error("waitfg:error");
+			if(sigprocmask(SIG_UNBLOCK,&mask,NULL)<0){
+				printf("SIG_UNBLOCK error");
 			}
-			deletejob(jobs,pid);
+			waitfg(pid,1);		
 		}else{/*background*/
 			addjob(jobs,pid,BG,cmdline);
+			if(sigprocmask(SIG_UNBLOCK,&mask,NULL)<0){
+				printf("SIG_UNBLOCK error");
+			}
 			printf("(%d) (%d) %s",pid2jid(pid),pid,cmdline);
 		}
 	}
@@ -216,6 +238,22 @@ int builtin_cmd(char **argv)
 
 void waitfg(pid_t pid, int output_fd)
 {
+	struct job_t *j = getjobpid(jobs,pid);
+	char buf[MAXLINE];
+
+	if(!j)
+		return;
+	while(j->pid == pid&& j->state ==FG)
+		sleep(1);
+	
+	if(verbose){
+		memset(buf,'\0',MAXLINE);
+		sprintf(buf,"waitfg : Process(%d) no longer the fg process:q\n",pid);
+		if(write(output_fd,buf,strlen(buf))<0){
+			fprintf(stderr,"Error writing to file\n");
+			exit(1);
+		}
+	}
 	return;
 }
 
@@ -232,6 +270,20 @@ void waitfg(pid_t pid, int output_fd)
  */
 void sigchld_handler(int sig) 
 {
+	int status;
+	pid_t pid;
+	while((pid=waitpid(-1,&status,0))>0){
+		if(WIFSIGNALED(status)){
+			printf("Job [%d] (%d) terminated by signal %d\n",pid2jid(pid),pid,WTERMSIG(status));
+			deletejob(jobs,pid);
+		}
+		else if(WIFEXITED(status)){
+			deletejob(jobs,pid);
+		}
+		else{
+			printf("waitpid error");
+		}
+	}
 	return;
 }
 
@@ -242,6 +294,12 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+	pid_t pid = fgpid(jobs);
+	if(pid>0){
+		if(kill(pid,SIGINT)<0){
+			printf("kill error");
+		}
+	}
 	return;
 }
 
