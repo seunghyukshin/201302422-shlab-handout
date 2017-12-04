@@ -199,7 +199,9 @@ void eval(char *cmdline)
 			if(sigprocmask(SIG_UNBLOCK,&mask,NULL)<0){
 				printf("child_SIG_UNBLOCK error");
 			}
-
+			if(setpgid(0,0) == -1){
+				unix_error("setpgid error");
+			}
 			if((execve(argv[0],argv,environ)<0)){
 				printf("%s:Command not found\n",argv);
 				exit(0);
@@ -325,7 +327,7 @@ void sigint_handler(int sig)
 {
 	pid_t pid = fgpid(jobs);
 	if(pid>0){
-		if(kill(pid,SIGINT)<0){
+		if(kill(-pid,SIGINT)<0){
 			printf("kill error");
 		}
 	}
@@ -341,7 +343,7 @@ void sigtstp_handler(int sig)
 {
 	pid_t pid = fgpid(jobs);
 	if(pid >0){
-		if(kill(pid,SIGTSTP)<0){
+		if(kill(-pid,SIGTSTP)<0){
 			printf("SIGTSTP kill error");
 		}
 	}
