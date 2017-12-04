@@ -186,6 +186,9 @@ void eval(char *cmdline)
 		if(sigaddset(&mask,SIGCHLD)<0){
 			printf("SIGCHLD error");
 		}
+		if(sigaddset(&mask,SIGTSTP)<0){
+			printf("STGTSTP error");
+		}
 	}
 	if(sigprocmask(SIG_BLOCK,&mask,NULL)<0){
 		printf("SIG_BLOCK error");
@@ -272,8 +275,15 @@ void sigchld_handler(int sig)
 {
 	int status;
 	pid_t pid;
-	while((pid=waitpid(-1,&status,0))>0){
-		if(WIFSIGNALED(status)){
+	struct job_t *j;
+
+	while((pid=waitpid(-1,&status,WNOHANG|WUNTRACED))>0){
+		if(WIFSTOPPED(status)){
+			j=getjobpid(jobs,pid);
+			j->state =ST;
+			printf("Job [%d] (%d) stopped by signal %d\n",pid2jid(pid),pid,WSTOPSIG(status));
+		}
+		else if(WIFSIGNALED(status)){
 			printf("Job [%d] (%d) terminated by signal %d\n",pid2jid(pid),pid,WTERMSIG(status));
 			deletejob(jobs,pid);
 		}
@@ -310,6 +320,12 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+	pid_t pid = fgpid(jobs);
+	if(pid >0){
+		if(kill(pid,SIGTSTP)<0){
+			printf("SIGTSTP kill error");
+		}
+	}
 	return;
 }
 
