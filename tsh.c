@@ -237,7 +237,7 @@ int builtin_cmd(char **argv)
 		listjobs(jobs,1);
 		return 1;
 	}
-	if(!strcmp(cmd,"bg")){
+	if(!strcmp(cmd,"fg")){
 		if(argv[1][0]=='%'){ //%jid
 			int jid = atoi(&argv[1][1]);
 			job = getjobjid(jobs,jid);
@@ -252,8 +252,7 @@ int builtin_cmd(char **argv)
 				printf("SIGCONT pid kill error");
 			}
 		}
-		job->state =BG;
-		printf("[%d] (%d) %s",job->jid, job->pid, job->cmdline);
+		job->state =FG;
 		return 1;
 	}
 	return 0;
