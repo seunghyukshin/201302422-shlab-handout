@@ -228,12 +228,32 @@ void eval(char *cmdline)
 int builtin_cmd(char **argv)
 { 	
 	char *cmd = argv[0];
+	struct job_t *job;
 	
 	if(!strcmp(cmd,"quit")){
 		exit(0);
 	}
 	if(!strcmp(cmd,"jobs")){
 		listjobs(jobs,1);
+		return 1;
+	}
+	if(!strcmp(cmd,"bg")){
+		if(argv[1][0]=='%'){ //%jid
+			int jid = atoi(&argv[1][1]);
+			job = getjobjid(jobs,jid);
+			if(kill(job->pid,SIGCONT)<0){
+				printf("SIGCONT jid kill error");
+			}
+		}
+		else{ //pid
+			int pid = atoi(&argv[1][0]);
+			job = getjobpid(jobs,pid);
+			if(kill(pid,SIGCONT)<0){
+				printf("SIGCONT pid kill error");
+			}
+		}
+		job->state =BG;
+		printf("[%d] (%d) %s",job->jid, job->pid, job->cmdline);
 		return 1;
 	}
 	return 0;
